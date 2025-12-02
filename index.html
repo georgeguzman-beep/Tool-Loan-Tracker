@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tool Loan Tracker</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <style>
+    body {font-family: Arial, sans-serif;background: #f4f6f8;margin: 0;padding: 20px;}
+    h1 {text-align: center;color: #333;}
+    #app-container {max-width: 700px;margin: auto;background: #fff;padding: 20px;border-radius: 8px;box-shadow: 0 4px 8px rgba(0,0,0,0.1);}
+    #reader {width: 100%;margin-bottom: 15px;}
+    .input-group {margin-bottom: 10px;}
+    input {width: 100%;padding: 10px;font-size: 16px;border: 1px solid #ccc;border-radius: 4px;margin-bottom: 10px;}
+    button {padding: 10px 15px;font-size: 16px;margin-right: 10px;border: none;border-radius: 4px;cursor: pointer;}
+    .btn-primary {background: #007bff;color: #fff;}
+    .btn-secondary {background: #6c757d;color: #fff;}
+    .btn-success {background: #28a745;color: #fff;}
+    table {width: 100%;border-collapse: collapse;margin-top: 15px;}
+    th, td {border: 1px solid #ddd;padding: 8px;text-align: center;}
+    th {background: #007bff;color: #fff;}
+  </style>
+</head>
+<body>
+  <h1>Tool Loan Tracker</h1>
+  <div id="app-container">
+    <div id="reader"></div>
+    <p><strong>Scanned Tool Number:</strong> <span id="toolNumber">None</span></p>
+    <div class="input-group">
+      <input type="text" id="manualToolNumber" placeholder="Or enter Tool Number manually" oninput="this.value=this.value.toUpperCase()">
+      <input type="text" id="borrowerName" placeholder="Enter Borrower Name">
+    </div>
+    <button class="btn-primary" onclick="addEntry()">Borrow Tool</button>
+    <button class="btn-success" onclick="returnTool()">Return Tool</button>
+    <button class="btn-secondary" onclick="exportExcel()">Export to Excel</button>
+
+    <table id="logTable">
+      <thead>
+        <tr>
+          <th>Tool Number</th>
+          <th>Borrower Name</th>
+          <th>Status</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    let scannedCode = "";
+    let logData = [];
+
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      (decodedText) => {
+        scannedCode = decodedText;
+        document.getElementById("toolNumber").innerText = scannedCode;
+      }
+    );
+
+    function getToolNumber() {
+      const manualInput = document.getElementById("manualToolNumber").value.trim();
+      return manualInput || scannedCode;
+    }
+
+    function addEntry() {
+      const toolNumber = getToolNumber();
+      const borrower = document.getElementById("borrowerName").value.trim();
+      if (!toolNumber || !borrower) {
+        alert("Please scan or enter tool number and borrower name.");
+        return;
+      }
+      const timestamp = new Date().toLocaleString();
+      const newEntry = { ToolNumber: toolNumber, Borrower: borrower, Status: "Borrowed", Timestamp: timestamp };
+      logData.push(newEntry);
+      updateTable();
+      resetInputs();
+    }
+
+    function returnTool() {
+      const toolNumber = getToolNumber();
+      if (!toolNumber) {
+        alert("Please scan or enter tool number to return.");
+        return;
+      }
+      const timestamp = new Date().toLocaleString();
+      const newEntry = { ToolNumber: toolNumber, Borrower: "-", Status: "Returned", Timestamp: timestamp };
+      logData.push(newEntry);
+      updateTable();
+      resetInputs();
+    }
+
+    function updateTable() {
+      const tbody = document.querySelector("#logTable tbody");
+      tbody.innerHTML = "";
+      logData.forEach(entry => {
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${entry.ToolNumber}</td><td>${entry.Borrower}</td><td>${entry.Status}</td><td>${entry.Timestamp}</td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    function resetInputs() {
+      document.getElementById("borrowerName").value = "";
+      document.getElementById("manualToolNumber").value = "";
+      scannedCode = "";
+      document.getElementById("toolNumber").innerText = "None";
+    }
+
+    function exportExcel() {
+      if (logData.length === 0) {
+        alert("No data to export.");
+        return;
+      }
+      const ws = XLSX.utils.json_to_sheet(logData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Log");
+      XLSX.writeFile(wb, "ToolLoanLog.xlsx");
+    }
+  </script>
+</body>
+</html>
