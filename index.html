@@ -2,186 +2,352 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tool Loan Tracker</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f6f8; }
-        header { background-color: #0078d7; color: white; text-align: center; padding: 20px 0; font-size: 24px; font-weight: bold; }
-        .container { max-width: 900px; margin: 30px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h2 { margin-bottom: 20px; color: #333; }
-        .form-group { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
-        .form-group input, .form-group select { padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; flex: 1; text-transform: uppercase; }
-        .btn { background-color: #0078d7; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; transition: background-color 0.3s ease; }
-        .btn:hover { background-color: #005fa3; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #0078d7; color: white; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        .actions { display: flex; gap: 10px; margin-bottom: 20px; }
-        #scanner-container { width: 100%; height: 300px; border: 2px dashed #0078d7; margin-bottom: 20px; display: none; justify-content: center; align-items: center; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tool Loan Tracker</title>
+
+  <style>
+    :root {
+      --brand: #0ea5e9;      /* sky-500 */
+      --text: #1f2937;       /* slate-800 */
+      --muted: #64748b;      /* slate-500 */
+      --panel: #ffffff;      /* white panels */
+      --border: #e5e7eb;     /* gray-200 */
+      --accent: #22c55e;     /* green-500 */
+      --frame: #475569;      /* dashed frame color */
+      --corner: #0EA5E9;     /* slot corner color */
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%; margin: 0; background: #ffffff; color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    }
+
+    .topbar {
+      background: var(--brand);
+      color: white;
+      padding: 14px 22px;
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.25px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    }
+    .page { max-width: 1120px; margin: 24px auto; padding: 0 22px; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(17,24,39,0.06);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .input, .select {
+      height: 40px; border-radius: 10px; border: 1px solid var(--border);
+      background: #ffffff; color: var(--text); padding: 10px 12px; font-size: 0.95rem;
+    }
+    .input.upper { text-transform: uppercase; } /* visual uppercase */
+
+    .btn {
+      height: 40px; border-radius: 10px; padding: 0 14px; font-size: 0.95rem;
+      border: 1px solid var(--border); background: #f8fafc; color: var(--text);
+      cursor: pointer; transition: transform 0.06s ease, background 0.2s ease, border-color 0.2s ease;
+    }
+    .btn:hover { transform: translateY(-1px); background: #eef2f7; border-color: #cbd5e1; }
+    .btn.primary { border-color: #16a34a; background: #def7e6; }
+    .btn.primary:hover { background: #c9f0d6; }
+    .btn.brand { border-color: #0284c7; background: #e0f2fe; }
+    .btn.brand:hover { background: #cbe9fd; }
+
+    /* Camera area */
+    .camera-card.hidden { display: none; }
+    .viewport { position: relative; width: 100%; height: min(65vh, 600px); background: #000; border-radius: 12px; overflow: hidden; }
+
+    video#preview {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      max-width: 100%; max-height: 100%;
+      width: 1000px; height: 1000px;
+      object-fit: contain; background: #000; z-index: 1;
+    }
+
+    .scan-frame {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: min(66vw, 480px); aspect-ratio: 1 / 1; max-width: 92%;
+      border: 2px dashed var(--frame); border-radius: 16px;
+      display: grid; place-items: center; pointer-events: none; z-index: 2;
+    }
+    .scan-frame::before, .scan-frame::after { content: ""; position: absolute; inset: 0; pointer-events: none; }
+    .scan-frame::before {
+      background:
+        linear-gradient(var(--corner), var(--corner)) left top / 24px 3px no-repeat,
+        linear-gradient(var(--corner), var(--corner)) right top / 24px 3px no-repeat,
+        linear-gradient(var(--corner), var(--corner)) left bottom / 24px 3px no-repeat,
+        linear-gradient(var(--corner), var(--corner)) right bottom / 24px 3px no-repeat;
+      border-radius: inherit;
+    }
+    .scan-frame::after {
+      background:
+        linear-gradient(var(--corner), var(--corner)) left top / 3px 24px no-repeat,
+        linear-gradient(var(--corner), var(--corner)) right top / 3px 24px no-repeat,
+        linear-gradient(var(--corner), var(--corner)) left bottom / 3px 24px no-repeat,
+        linear-gradient(var(--corner), var(--corner)) right bottom / 3px 24px no-repeat;
+      border-radius: inherit;
+    }
+    .hint { position: absolute; bottom: -34px; left: 50%; transform: translateX(-50%);
+      color: #ffffff; font-size: 0.9rem; text-align: center; white-space: nowrap; opacity: 0.85; }
+
+    .status { margin-top: 10px; color: var(--muted); font-size: 0.95rem; min-height: 1.4em; }
+    .status.ok    { color: #16a34a; }
+    .status.error { color: #ef4444; }
+    .status.result{ color: #0ea5e9; }
+
+    table { width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    thead th { background: var(--brand); color: #fff; font-weight: 700; padding: 10px 12px; text-align: left; }
+    tbody td { padding: 10px 12px; border-top: 1px solid var(--border); }
+    tbody tr:nth-child(even) td { background: #f9fafb; }
+  </style>
 </head>
 <body>
-    <header>Tool Loan Tracker</header>
-    <div class="container">
-        <h2>Manage Tool Loans</h2>
-        <div id="scanner-container"></div>
-        <div class="form-group">
-            <input type="text" id="toolNumber" placeholder="Tool Number" oninput="this.value = this.value.toUpperCase();">
-            <input type="text" id="borrowerName" placeholder="Borrower Name" oninput="this.value = this.value.toUpperCase();">
-            <select id="status" oninput="this.value = this.value.toUpperCase();">
-                <option value="Borrowed">Borrowed</option>
-                <option value="Returned">Returned</option>
-            </select>
-            <button class="btn" onclick="addRow()">Add Entry</button>
-        </div>
-        <div class="actions">
-            <button class="btn" onclick="startScanner()">Scan Barcode</button>
-            <button class="btn" onclick="exportToExcel()">Export to Excel</button>
-            <button class="btn" onclick="clearAllData()">Clear All Data</button>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Tool Number</th>
-                    <th>Borrower Name</th>
-                    <th>Status</th>
-                    <th>Timestamp</th>
-                </tr>
-            </thead>
-            <tbody id="loanTableBody"></tbody>
-        </table>
+  <div class="topbar">Tool Loan Tracker</div>
+
+  <div class="page">
+    <!-- Entry card -->
+    <div class="card">
+      <div class="row" style="margin-bottom:10px;">
+        <input id="toolNumber" class="input upper" type="text" placeholder="TOOL NUMBER" aria-label="Tool Number" />
+        <input id="borrowerName" class="input upper" type="text" placeholder="BORROWER NAME" aria-label="Borrower Name" />
+        <select id="statusSelect" class="select" aria-label="Status">
+          <option value="BORROWED">BORROWED</option>
+          <option value="RETURNED">RETURNED</option>
+        </select>
+        <button id="btnAddEntry" class="btn primary">Add Entry</button>
+        <button id="btnScanBarcode" class="btn brand">Scan Barcode</button>
+        <button id="btnStop" class="btn" style="display:none;">Stop Scan</button>
+      </div>
+
+      <div class="row">
+        <button id="btnExport" class="btn">Export to Excel</button>
+      </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedRows = JSON.parse(localStorage.getItem('loanTableData')) || [];
-            savedRows.forEach(row => addRow(row.toolNumber, row.borrowerName, row.status, row.timestamp, false));
-        });
 
-        function addRow(toolNumberInput, borrowerNameInput, statusInput, timestampInput, save = true) {
-            const toolNumber = toolNumberInput || document.getElementById('toolNumber').value.trim().toUpperCase();
-            const borrowerName = borrowerNameInput || document.getElementById('borrowerName').value.trim().toUpperCase();
-            const status = statusInput || document.getElementById('status').value.toUpperCase();
-            const timestamp = timestampInput || new Date().toLocaleString();
+    <!-- Camera card (hidden until Scan) -->
+    <div id="cameraCard" class="card camera-card hidden" aria-label="Camera preview">
+      <div class="viewport">
+        <video id="preview" autoplay playsinline muted></video>
+        <div class="scan-frame" aria-hidden="true">
+          <span class="hint">Center the Code&nbsp;39 barcode</span>
+        </div>
+        <div class="mask" aria-hidden="true"></div>
+      </div>
 
-            if (!toolNumber || !borrowerName) {
-                if (save) alert('Please enter both Tool Number and Borrower Name.');
-                return;
+      <div id="cameraStatus" class="status">Scanner idle</div>
+      <div id="scanResult" class="status result"></div>
+    </div>
+
+    <!-- Log card -->
+    <div class="card">
+      <table aria-label="Tool Loans Table" id="loanTable">
+        <thead>
+          <tr>
+            <th>Tool Number</th>
+            <th>Borrower Name</th>
+            <th>Status</th>
+            <th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="loanBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Single inline script: event handlers + dynamic library loading (no visible URLs on page) -->
+  <script>
+    // ---------- Utility: safe script loader ----------
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Failed to load: ' + src));
+        document.head.appendChild(s);
+      });
+    }
+
+    // ---------- Local Storage helpers ----------
+    const STORAGE_KEY = 'toolLoans';
+    const loadEntries = () => {
+      try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; }
+      catch { return []; }
+    };
+    const saveEntries = (entries) => localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    const appendRow = (entry) => {
+      const loanBody = document.getElementById('loanBody');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${entry.tool}</td>
+        <td>${entry.name}</td>
+        <td>${entry.status}</td>
+        <td>${entry.timestamp}</td>
+      `;
+      loanBody.appendChild(tr);
+    };
+    const renderAll = () => {
+      const loanBody = document.getElementById('loanBody');
+      loanBody.innerHTML = '';
+      loadEntries().forEach(appendRow);
+    };
+
+    // ---------- App ----------
+    document.addEventListener('DOMContentLoaded', () => {
+      const preview     = document.getElementById('preview');
+      const cameraCard  = document.getElementById('cameraCard');
+      const statusEl    = document.getElementById('cameraStatus');
+      const resultEl    = document.getElementById('scanResult');
+
+      const toolInput   = document.getElementById('toolNumber');
+      const nameInput   = document.getElementById('borrowerName');
+      const statusSel   = document.getElementById('statusSelect');
+
+      const btnAdd      = document.getElementById('btnAddEntry');
+      const btnScan     = document.getElementById('btnScanBarcode');
+      const btnStop     = document.getElementById('btnStop');
+      const btnExport   = document.getElementById('btnExport');
+
+      // Uppercase normalization
+      const toUpper = e => e.target.value = (e.target.value || '').toUpperCase();
+      toolInput.addEventListener('input', toUpper);
+      nameInput.addEventListener('input', toUpper);
+
+      // ---- Add Entry ----
+      btnAdd.addEventListener('click', () => {
+        const tool   = (toolInput.value || '').toUpperCase().trim();
+        const name   = (nameInput.value || '').toUpperCase().trim();
+        const status = statusSel.value;
+
+        if (!tool || !name) {
+          alert('Please enter TOOL NUMBER and BORROWER NAME.');
+          return;
+        }
+
+        const timestamp = new Date().toLocaleString();
+        const entry = { tool, name, status, timestamp };
+
+        const entries = loadEntries();
+        entries.push(entry);
+        saveEntries(entries);
+        appendRow(entry);
+
+        // Optional: clear borrower name only
+        nameInput.value = '';
+      });
+
+      // ---- Export to Excel (dynamic SheetJS load; CSV fallback) ----
+      btnExport.addEventListener('click', async () => {
+        const entries = loadEntries();
+        if (!entries.length) { alert('No entries to export.'); return; }
+
+        try {
+          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+          const data = entries.map(({tool, name, status, timestamp}) => ({
+            "Tool Number": tool,
+            "Borrower Name": name,
+            "Status": status,
+            "Timestamp": timestamp
+          }));
+          const ws = XLSX.utils.json_to_sheet(data);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "ToolLoans");
+          const fname = `tool_loans_${new Date().toISOString().slice(0,10)}.xlsx`;
+          XLSX.writeFile(wb, fname);
+        } catch {
+          // CSV fallback
+          const header = ["Tool Number","Borrower Name","Status","Timestamp"];
+          const rows = entries.map(e => [e.tool, e.name, e.status, e.timestamp]);
+          const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `tool_loans_${new Date().toISOString().slice(0,10)}.csv`;
+          document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+      });
+
+      // ---- Scan Barcode (dynamic ZXing load) ----
+      let reader = null;
+      let lastText = "";
+
+      async function startScan() {
+        try {
+          await loadScript('https://unpkg.com/@zxing/library@latest');
+          await loadScript('https://unpkg.com/@zxing/browser@latest');
+
+          const tempStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } }, audio: false
+          });
+          tempStream.getTracks().forEach(t => t.stop());
+
+          const hints = new Map();
+          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_39]);
+          hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+          reader = new ZXingBrowser.BrowserMultiFormatReader(hints);
+
+          const devices = await reader.listVideoInputDevices();
+          const rear = devices.find(d => /back|rear|environment/i.test(d.label || ''));
+          const deviceId = rear ? rear.deviceId : (devices[0] && devices[0].deviceId) || null;
+
+          await reader.decodeFromVideoDevice(deviceId, preview, (result, err) => {
+            if (result) {
+              const text = (result.getText() || "").toUpperCase();
+              if (text && text !== lastText) {
+                lastText = text;
+                resultEl.textContent = `Decoded: ${text}`;
+                resultEl.classList.add('result');
+                toolInput.value = text; // auto-fill tool number
+              }
             }
+          });
 
-            const tableBody = document.getElementById('loanTableBody');
-            const row = document.createElement('tr');
-
-            row.innerHTML = `
-                <td>${toolNumber}</td>
-                <td>${borrowerName}</td>
-                <td>${status}</td>
-                <td class='timestamp'>${timestamp}</td>
-            `;
-
-            tableBody.appendChild(row);
-
-            if (save) {
-                saveToLocalStorage();
-                document.getElementById('toolNumber').value = '';
-                document.getElementById('borrowerName').value = '';
-            }
+          statusEl.textContent = 'Scanner active';
+          statusEl.classList.remove('error');
+          statusEl.classList.add('ok');
+          btnStop.style.display = 'inline-block';
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = 'Scanner unavailable.';
+          statusEl.classList.remove('ok');
+          statusEl.classList.add('error');
+          btnStop.style.display = 'none';
         }
+      }
 
-        function saveToLocalStorage() {
-            const rows = document.querySelectorAll('#loanTableBody tr');
-            const data = [];
-            rows.forEach(row => {
-                const cells = row.querySelectorAll('td');
-                data.push({
-                    toolNumber: cells[0].textContent,
-                    borrowerName: cells[1].textContent,
-                    status: cells[2].textContent,
-                    timestamp: cells[3].textContent
-                });
-            });
-            localStorage.setItem('loanTableData', JSON.stringify(data));
-        }
+      function stopScan() {
+        lastText = "";
+        if (reader) { reader.reset(); reader = null; }
+        preview.srcObject = null;
+        statusEl.textContent = 'Scanner stopped';
+        statusEl.classList.remove('error', 'ok');
+        btnStop.style.display = 'none';
+      }
 
-        function exportToExcel() {
-            const rows = document.querySelectorAll('table tr');
-            const data = [];
-            rows.forEach(row => {
-                const rowData = [];
-                row.querySelectorAll('th, td').forEach(cell => rowData.push(cell.textContent));
-                data.push(rowData);
-            });
+      btnScan.addEventListener('click', async () => {
+        cameraCard.classList.remove('hidden');
+        await startScan();
+      });
 
-            const worksheet = XLSX.utils.aoa_to_sheet(data);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, 'Tool Loans');
-            XLSX.writeFile(workbook, 'tool_loans.xlsx');
-        }
+      btnStop.addEventListener('click', () => {
+        stopScan();
+        cameraCard.classList.add('hidden');
+        resultEl.textContent = '';
+      });
 
-        function clearAllData() {
-            document.getElementById('loanTableBody').innerHTML = '';
-            localStorage.removeItem('loanTableData');
-        }
-
-        function startScanner() {
-            const scannerContainer = document.getElementById('scanner-container');
-            scannerContainer.style.display = 'flex';
-
-            Quagga.init({
-                inputStream: {
-                    type: 'LiveStream',
-                    target: scannerContainer,
-                    constraints: { facingMode: 'environment' }
-                },
-                decoder: {
-                    readers: ['code_39_reader', 'code_128_reader', 'ean_reader']
-                }
-            }, function(err) {
-                if (err) {
-                    console.error(err);
-                    alert('Error initializing scanner');
-                    return;
-                }
-                Quagga.start();
-            });
-
-            Quagga.onDetected(function(result) {
-                const code = result.codeResult.code;
-                const toolInput = document.getElementById('toolNumber');
-                toolInput.value = code.toUpperCase();
-                toolInput.style.border = '3px solid green';
-                setTimeout(() => toolInput.style.border = '', 2000);
-                Quagga.stop();
-                scannerContainer.style.display = 'none';
-            });
-        }
-
-        document.getElementById('status').addEventListener('keydown', function(e) {
-            if (e.key.toUpperCase() === 'B') {
-                this.value = 'Borrowed';
-            } else if (e.key.toUpperCase() === 'R') {
-                this.value = 'Returned';
-            }
-        });
-
-        setInterval(() => {
-            document.querySelectorAll('.timestamp').forEach(cell => {
-                cell.textContent = new Date().toLocaleString();
-            });
-            saveToLocalStorage();
-        }, 60000);
-
-        // Dynamically load external scripts
-        const loadScript = (src) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.async = true;
-            document.body.appendChild(script);
-        };
-
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js');
-    </script>
+      // Initial render
+      renderAll();
+    });
+  </script>
 </body>
 </html>
