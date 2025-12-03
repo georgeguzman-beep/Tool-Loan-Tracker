@@ -163,7 +163,7 @@
     </div>
   </div>
 
-  <!-- Single inline script: event handlers + dynamic library loading (no visible URLs on page) -->
+  <!-- Single inline script: event handlers + dynamic library loading (no visible URLs shown in the page) -->
   <script>
     // ---------- Utility: safe script loader ----------
     function loadScript(src) {
@@ -264,7 +264,7 @@
           const fname = `tool_loans_${new Date().toISOString().slice(0,10)}.xlsx`;
           XLSX.writeFile(wb, fname);
         } catch {
-          // CSV fallback
+          // CSV fallback (no external libs)
           const header = ["Tool Number","Borrower Name","Status","Timestamp"];
           const rows = entries.map(e => [e.tool, e.name, e.status, e.timestamp]);
           const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
@@ -281,14 +281,29 @@
       let lastText = "";
 
       async function startScan() {
+        // Capability check + secure context hint
+        if (!('mediaDevices' in navigator) || !('getUserMedia' in navigator.mediaDevices)) {
+          statusEl.textContent = 'Camera not supported in this browser.';
+          statusEl.classList.add('error');
+          return;
+        }
+
         try {
+          // Ensure permission prompt; rear camera hint inside video constraints
+          const constraints = {
+            audio: false,
+            video: {
+              facingMode: { ideal: 'environment' },
+              width:  { ideal: 1920 },
+              height: { ideal: 1080 }
+            }
+          };
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          preview.srcObject = stream;
+
+          // Load ZXing after stream is live
           await loadScript('https://unpkg.com/@zxing/library@latest');
           await loadScript('https://unpkg.com/@zxing/browser@latest');
-
-          const tempStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: 'environment' } }, audio: false
-          });
-          tempStream.getTracks().forEach(t => t.stop());
 
           const hints = new Map();
           hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_39]);
@@ -318,7 +333,11 @@
           btnStop.style.display = 'inline-block';
         } catch (err) {
           console.error(err);
-          statusEl.textContent = 'Scanner unavailable.';
+          if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            statusEl.textContent = 'Scanner unavailable: serve this page over HTTPS.';
+          } else {
+            statusEl.textContent = 'Scanner unavailable: permission denied or no camera.';
+          }
           statusEl.classList.remove('ok');
           statusEl.classList.add('error');
           btnStop.style.display = 'none';
@@ -328,6 +347,9 @@
       function stopScan() {
         lastText = "";
         if (reader) { reader.reset(); reader = null; }
+        // Stop any raw stream tracks too
+        const stream = preview.srcObject;
+        if (stream && stream.getTracks) stream.getTracks().forEach(t => t.stop());
         preview.srcObject = null;
         statusEl.textContent = 'Scanner stopped';
         statusEl.classList.remove('error', 'ok');
