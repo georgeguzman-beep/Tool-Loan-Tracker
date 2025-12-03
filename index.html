@@ -1,126 +1,187 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tool Loan Tracker</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-  <style>
-    body {font-family: Arial, sans-serif;background: #f4f6f8;margin: 0;padding: 20px;}
-    h1 {text-align: center;color: #333;}
-    #app-container {max-width: 700px;margin: auto;background: #fff;padding: 20px;border-radius: 8px;box-shadow: 0 4px 8px rgba(0,0,0,0.1);}
-    #reader {width: 100%;margin-bottom: 15px;}
-    .input-group {margin-bottom: 10px;}
-    input {width: 100%;padding: 10px;font-size: 16px;border: 1px solid #ccc;border-radius: 4px;margin-bottom: 10px;}
-    button {padding: 10px 15px;font-size: 16px;margin-right: 10px;border: none;border-radius: 4px;cursor: pointer;}
-    .btn-primary {background: #007bff;color: #fff;}
-    .btn-secondary {background: #6c757d;color: #fff;}
-    .btn-success {background: #28a745;color: #fff;}
-    table {width: 100%;border-collapse: collapse;margin-top: 15px;}
-    th, td {border: 1px solid #ddd;padding: 8px;text-align: center;}
-    th {background: #007bff;color: #fff;}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Loan Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f6f8; }
+        header { background-color: #0078d7; color: white; text-align: center; padding: 20px 0; font-size: 24px; font-weight: bold; }
+        .container { max-width: 900px; margin: 30px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { margin-bottom: 20px; color: #333; }
+        .form-group { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .form-group input, .form-group select { padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; flex: 1; text-transform: uppercase; }
+        .btn { background-color: #0078d7; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; transition: background-color 0.3s ease; }
+        .btn:hover { background-color: #005fa3; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #0078d7; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .actions { display: flex; gap: 10px; margin-bottom: 20px; }
+        #scanner-container { width: 100%; height: 300px; border: 2px dashed #0078d7; margin-bottom: 20px; display: none; justify-content: center; align-items: center; }
+    </style>
 </head>
 <body>
-  <h1>Tool Loan Tracker</h1>
-  <div id="app-container">
-    <div id="reader"></div>
-    <p><strong>Scanned Tool Number:</strong> <span id="toolNumber">None</span></p>
-    <div class="input-group">
-      <input type="text" id="manualToolNumber" placeholder="Or enter Tool Number manually" oninput="this.value=this.value.toUpperCase()">
-      <input type="text" id="borrowerName" placeholder="Enter Borrower Name">
+    <header>Tool Loan Tracker</header>
+    <div class="container">
+        <h2>Manage Tool Loans</h2>
+        <div id="scanner-container"></div>
+        <div class="form-group">
+            <input type="text" id="toolNumber" placeholder="Tool Number" oninput="this.value = this.value.toUpperCase();">
+            <input type="text" id="borrowerName" placeholder="Borrower Name" oninput="this.value = this.value.toUpperCase();">
+            <select id="status" oninput="this.value = this.value.toUpperCase();">
+                <option value="Borrowed">Borrowed</option>
+                <option value="Returned">Returned</option>
+            </select>
+            <button class="btn" onclick="addRow()">Add Entry</button>
+        </div>
+        <div class="actions">
+            <button class="btn" onclick="startScanner()">Scan Barcode</button>
+            <button class="btn" onclick="exportToExcel()">Export to Excel</button>
+            <button class="btn" onclick="clearAllData()">Clear All Data</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Tool Number</th>
+                    <th>Borrower Name</th>
+                    <th>Status</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="loanTableBody"></tbody>
+        </table>
     </div>
-    <button class="btn-primary" onclick="addEntry()">Borrow Tool</button>
-    <button class="btn-success" onclick="returnTool()">Return Tool</button>
-    <button class="btn-secondary" onclick="exportExcel()">Export to Excel</button>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedRows = JSON.parse(localStorage.getItem('loanTableData')) || [];
+            savedRows.forEach(row => addRow(row.toolNumber, row.borrowerName, row.status, row.timestamp, false));
+        });
 
-    <table id="logTable">
-      <thead>
-        <tr>
-          <th>Tool Number</th>
-          <th>Borrower Name</th>
-          <th>Status</th>
-          <th>Timestamp</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+        function addRow(toolNumberInput, borrowerNameInput, statusInput, timestampInput, save = true) {
+            const toolNumber = toolNumberInput || document.getElementById('toolNumber').value.trim().toUpperCase();
+            const borrowerName = borrowerNameInput || document.getElementById('borrowerName').value.trim().toUpperCase();
+            const status = statusInput || document.getElementById('status').value.toUpperCase();
+            const timestamp = timestampInput || new Date().toLocaleString();
 
-  <script>
-    let scannedCode = "";
-    let logData = [];
+            if (!toolNumber || !borrowerName) {
+                if (save) alert('Please enter both Tool Number and Borrower Name.');
+                return;
+            }
 
-    const html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: 250 },
-      (decodedText) => {
-        scannedCode = decodedText;
-        document.getElementById("toolNumber").innerText = scannedCode;
-      }
-    );
+            const tableBody = document.getElementById('loanTableBody');
+            const row = document.createElement('tr');
 
-    function getToolNumber() {
-      const manualInput = document.getElementById("manualToolNumber").value.trim();
-      return manualInput || scannedCode;
-    }
+            row.innerHTML = `
+                <td>${toolNumber}</td>
+                <td>${borrowerName}</td>
+                <td>${status}</td>
+                <td class='timestamp'>${timestamp}</td>
+            `;
 
-    function addEntry() {
-      const toolNumber = getToolNumber();
-      const borrower = document.getElementById("borrowerName").value.trim();
-      if (!toolNumber || !borrower) {
-        alert("Please scan or enter tool number and borrower name.");
-        return;
-      }
-      const timestamp = new Date().toLocaleString();
-      const newEntry = { ToolNumber: toolNumber, Borrower: borrower, Status: "Borrowed", Timestamp: timestamp };
-      logData.push(newEntry);
-      updateTable();
-      resetInputs();
-    }
+            tableBody.appendChild(row);
 
-    function returnTool() {
-      const toolNumber = getToolNumber();
-      if (!toolNumber) {
-        alert("Please scan or enter tool number to return.");
-        return;
-      }
-      const timestamp = new Date().toLocaleString();
-      const newEntry = { ToolNumber: toolNumber, Borrower: "-", Status: "Returned", Timestamp: timestamp };
-      logData.push(newEntry);
-      updateTable();
-      resetInputs();
-    }
+            if (save) {
+                saveToLocalStorage();
+                document.getElementById('toolNumber').value = '';
+                document.getElementById('borrowerName').value = '';
+            }
+        }
 
-    function updateTable() {
-      const tbody = document.querySelector("#logTable tbody");
-      tbody.innerHTML = "";
-      logData.forEach(entry => {
-        const row = document.createElement("tr");
-        row.innerHTML = `<td>${entry.ToolNumber}</td><td>${entry.Borrower}</td><td>${entry.Status}</td><td>${entry.Timestamp}</td>`;
-        tbody.appendChild(row);
-      });
-    }
+        function saveToLocalStorage() {
+            const rows = document.querySelectorAll('#loanTableBody tr');
+            const data = [];
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                data.push({
+                    toolNumber: cells[0].textContent,
+                    borrowerName: cells[1].textContent,
+                    status: cells[2].textContent,
+                    timestamp: cells[3].textContent
+                });
+            });
+            localStorage.setItem('loanTableData', JSON.stringify(data));
+        }
 
-    function resetInputs() {
-      document.getElementById("borrowerName").value = "";
-      document.getElementById("manualToolNumber").value = "";
-      scannedCode = "";
-      document.getElementById("toolNumber").innerText = "None";
-    }
+        function exportToExcel() {
+            const rows = document.querySelectorAll('table tr');
+            const data = [];
+            rows.forEach(row => {
+                const rowData = [];
+                row.querySelectorAll('th, td').forEach(cell => rowData.push(cell.textContent));
+                data.push(rowData);
+            });
 
-    function exportExcel() {
-      if (logData.length === 0) {
-        alert("No data to export.");
-        return;
-      }
-      const ws = XLSX.utils.json_to_sheet(logData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Log");
-      XLSX.writeFile(wb, "ToolLoanLog.xlsx");
-    }
-  </script>
+            const worksheet = XLSX.utils.aoa_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Tool Loans');
+            XLSX.writeFile(workbook, 'tool_loans.xlsx');
+        }
+
+        function clearAllData() {
+            document.getElementById('loanTableBody').innerHTML = '';
+            localStorage.removeItem('loanTableData');
+        }
+
+        function startScanner() {
+            const scannerContainer = document.getElementById('scanner-container');
+            scannerContainer.style.display = 'flex';
+
+            Quagga.init({
+                inputStream: {
+                    type: 'LiveStream',
+                    target: scannerContainer,
+                    constraints: { facingMode: 'environment' }
+                },
+                decoder: {
+                    readers: ['code_39_reader', 'code_128_reader', 'ean_reader']
+                }
+            }, function(err) {
+                if (err) {
+                    console.error(err);
+                    alert('Error initializing scanner');
+                    return;
+                }
+                Quagga.start();
+            });
+
+            Quagga.onDetected(function(result) {
+                const code = result.codeResult.code;
+                const toolInput = document.getElementById('toolNumber');
+                toolInput.value = code.toUpperCase();
+                toolInput.style.border = '3px solid green';
+                setTimeout(() => toolInput.style.border = '', 2000);
+                Quagga.stop();
+                scannerContainer.style.display = 'none';
+            });
+        }
+
+        document.getElementById('status').addEventListener('keydown', function(e) {
+            if (e.key.toUpperCase() === 'B') {
+                this.value = 'Borrowed';
+            } else if (e.key.toUpperCase() === 'R') {
+                this.value = 'Returned';
+            }
+        });
+
+        setInterval(() => {
+            document.querySelectorAll('.timestamp').forEach(cell => {
+                cell.textContent = new Date().toLocaleString();
+            });
+            saveToLocalStorage();
+        }, 60000);
+
+        // Dynamically load external scripts
+        const loadScript = (src) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = true;
+            document.body.appendChild(script);
+        };
+
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js');
+    </script>
 </body>
 </html>
