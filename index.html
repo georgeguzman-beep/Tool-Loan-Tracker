@@ -138,7 +138,7 @@
       <div class="viewport">
         <video id="preview" autoplay playsinline muted></video>
         <div class="scan-frame" aria-hidden="true">
-          <span class="hint">Center the Code&nbsp;39 barcode</span>
+          <span class="hint">Center the barcode</span>
         </div>
         <div class="mask" aria-hidden="true"></div>
       </div>
@@ -276,12 +276,12 @@
         }
       });
 
-      // ---- Scan Barcode (dynamic ZXing load) ----
+      // ---- Scan Barcode (dynamic ZXing load; multi-format) ----
       let reader = null;
       let lastText = "";
 
       async function startScan() {
-        // Capability check + secure context hint
+        // Capability + secure context hint
         if (!('mediaDevices' in navigator) || !('getUserMedia' in navigator.mediaDevices)) {
           statusEl.textContent = 'Camera not supported in this browser.';
           statusEl.classList.add('error');
@@ -289,7 +289,7 @@
         }
 
         try {
-          // Ensure permission prompt; rear camera hint inside video constraints
+          // Request permission; prefer rear camera
           const constraints = {
             audio: false,
             video: {
@@ -305,8 +305,22 @@
           await loadScript('https://unpkg.com/@zxing/library@latest');
           await loadScript('https://unpkg.com/@zxing/browser@latest');
 
+          // Supported everyday product formats + common 1D/2D:
+          const formats = [
+            ZXing.BarcodeFormat.UPC_A,
+            ZXing.BarcodeFormat.UPC_E,
+            ZXing.BarcodeFormat.EAN_13,
+            ZXing.BarcodeFormat.EAN_8,
+            ZXing.BarcodeFormat.CODE_128,
+            ZXing.BarcodeFormat.CODE_39,
+            ZXing.BarcodeFormat.CODE_93,
+            ZXing.BarcodeFormat.ITF,
+            ZXing.BarcodeFormat.CODABAR,
+            ZXing.BarcodeFormat.QR_CODE,
+            ZXing.BarcodeFormat.DATA_MATRIX
+          ];
           const hints = new Map();
-          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_39]);
+          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
           hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
 
           reader = new ZXingBrowser.BrowserMultiFormatReader(hints);
@@ -327,7 +341,7 @@
             }
           });
 
-          statusEl.textContent = 'Scanner active';
+          statusEl.textContent = 'Scanner active (UPC/EAN/Code128/Code39/ITF/Codabar, plus QR/DataMatrix)';
           statusEl.classList.remove('error');
           statusEl.classList.add('ok');
           btnStop.style.display = 'inline-block';
@@ -347,7 +361,6 @@
       function stopScan() {
         lastText = "";
         if (reader) { reader.reset(); reader = null; }
-        // Stop any raw stream tracks too
         const stream = preview.srcObject;
         if (stream && stream.getTracks) stream.getTracks().forEach(t => t.stop());
         preview.srcObject = null;
